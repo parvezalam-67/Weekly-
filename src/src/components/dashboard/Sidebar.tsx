@@ -1,5 +1,5 @@
+import { Star } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import myfxReview from '../../public/myfx_book_review.png';
 
 interface SidebarProps {
   dateRange: string;
@@ -53,13 +53,27 @@ export function Sidebar({ dateRange, totalPips, view = 'table', category = 'FORE
         </svg>
       </div>
 
-      {/* MyFxBook Review Image */}
-      <div className="mb-10">
-        <img
-          src={myfxReview}
-          alt="MyFxBook Review"
-          className="w-full max-w-[180px] object-contain"
-        />
+      {/* MyFxBook Section */}
+      <div className="space-y-1 mb-10">
+        <p className="text-[10px] font-semibold opacity-70 italic">Rated 4.7 out of 5</p>
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="w-4 h-4 bg-[#ee7d11] flex items-center justify-center">
+              <Star className="w-2.5 h-2.5 fill-white text-white" />
+            </div>
+          ))}
+          <div className="w-4 h-4 bg-[#ee7d11] relative flex items-center justify-center overflow-hidden">
+            <div className="absolute right-0 top-0 bottom-0 w-[30%] bg-gray-400 opacity-50" />
+            <Star className="w-2.5 h-2.5 fill-white text-white relative z-10" />
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 pt-1">
+          <div className="flex items-center">
+            <span className="text-[14px] font-bold text-white tracking-tighter">my</span>
+            <span className="text-[16px] font-black text-[#ee7d11] italic tracking-tighter mx-px shadow-[#ee7d11]/20 drop-shadow-sm">fx</span>
+            <span className="text-[14px] font-bold text-white tracking-tighter">book</span>
+          </div>
+        </div>
       </div>
 
       {/* Hero Text */}

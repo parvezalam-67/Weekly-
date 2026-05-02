@@ -9,9 +9,6 @@ import { cn } from './lib/utils';
 import { TechnicalChartBackground } from './components/dashboard/TechnicalChartBackground';
 import { Category } from './types';
 import { AnimatePresence, motion } from 'motion/react';
-import forexBg from './public/forex.jpg';
-import goldBg from './public/gold.jpg';
-import indicesBg from './public/indices.jpg';
 
 /**
  * Main Application Dashboard.
@@ -85,24 +82,6 @@ export default function App() {
             <div className={cn(view === 'table' ? "opacity-100" : "opacity-30")}>
               <TechnicalChartBackground />
             </div>
-
-            {/* Overview Background Image - full canvas, changes per active category */}
-            {view === 'overview' && (
-              <>
-                <div
-                  className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700"
-                  style={{
-                    backgroundImage: `url(${
-                      activeCategory === 'GOLD' ? goldBg
-                      : activeCategory === 'INDICES' ? indicesBg
-                      : forexBg
-                    })`
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/55" />
-              </>
-            )}
-
           </div>
 
           {/* Layer 1: Dashboard UI */}
