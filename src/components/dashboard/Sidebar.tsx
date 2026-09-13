@@ -1,17 +1,43 @@
 import { cn } from '../../lib/utils';
 import myfxReview from '../../public/myfx_book_review.png';
+import { PeriodType } from '../../types';
 
 interface SidebarProps {
   dateRange: string;
   totalPips: number;
   view?: 'table' | 'overview';
   category?: string;
+  period?: PeriodType;
+  selectedWeeks?: number[];
 }
 
-export function Sidebar({ dateRange, totalPips, view = 'table', category = 'FOREX' }: SidebarProps) {
+export function Sidebar({
+  dateRange,
+  totalPips,
+  view = 'table',
+  category = 'FOREX',
+  period = '1W',
+  selectedWeeks = []
+}: SidebarProps) {
   const isOverview = view === 'overview';
   const isGold = category === 'GOLD';
   const isIndices = category === 'INDICES';
+
+  const getPeriodHeading = () => {
+    switch (period) {
+      case '2W': return '2 Weeks';
+      case '3W': return '3 Weeks';
+      case '4W': return '4 Weeks';
+      case '1M': return 'Monthly';
+      case '2M': return '2 Months';
+      case '3M': return '3 Months';
+      case 'CUSTOM':
+        return selectedWeeks.length > 1 ? `${selectedWeeks.length} Weeks` : 'Selected';
+      case '1W':
+      default:
+        return 'This Week';
+    }
+  };
 
   return (
     <div className="flex flex-col h-full text-white p-6 lg:p-8 relative">
@@ -94,7 +120,7 @@ export function Sidebar({ dateRange, totalPips, view = 'table', category = 'FORE
             "font-black leading-[1.05] uppercase tracking-[-0.02em] opacity-95 transition-all",
             isOverview ? "text-2xl lg:text-[42px]" : "text-xl lg:text-[30px]"
           )}>
-            <p>This Week</p>
+            <p>{getPeriodHeading()}</p>
             <p>Performance</p>
             <p>Overview</p>
           </div>

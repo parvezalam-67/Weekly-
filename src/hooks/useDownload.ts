@@ -14,23 +14,60 @@ export function useDownload(ref: RefObject<HTMLElement | null>) {
       setIsExporting(true);
       
       // Dynamic import to keep main bundle light
-      const { toPng } = await import('html-to-image');
+      const { toPng, toJpeg } = await import('html-to-image');
 
       // Add a small buffer for the browser to stabilize
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const dataUrl = await toPng(ref.current, {
+      const filter = (node: HTMLElement) => {
+        return !node.classList?.contains?.('ignore-export');
+      };
+
+      const options = {
         cacheBust: true,
         pixelRatio: 2,
+        width: 1000,
+        height: 1000,
+        canvasWidth: 2000,
+        canvasHeight: 2000,
         backgroundColor: '#010101',
-        // Critical: We removed the external Unsplash image to avoid tainted canvas
+        filter,
         style: {
           borderRadius: '40px',
         }
-      });
+      };
 
+      let dataUrl: string | null = null;
+      let attempts = 0;
+      const maxRetries = 2;
+
+      while (attempts < maxRetries && !dataUrl) {
+        try {
+          attempts++;
+          dataUrl = await toPng(ref.current, options);
+        } catch (err) {
+          console.warn(`Export attempt ${attempts} (PNG) failed:`, err);
+          if (attempts >= maxRetries) {
+            try {
+              console.log('Falling back to JPEG export...');
+              dataUrl = await toJpeg(ref.current, { ...options, quality: 0.95 });
+            } catch (jpegErr) {
+              console.error('JPEG fallback failed:', jpegErr);
+              throw jpegErr;
+            }
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      }
+
+      if (!dataUrl) {
+        throw new Error('Capture failed to generate image data.');
+      }
+
+      const extension = dataUrl.includes('image/jpeg') ? 'jpg' : 'png';
       const link = document.createElement('a');
-      link.download = `sureshotfx-export.png`;
+      link.download = `sureshotfx-export.${extension}`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();

@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { TradeRecord, DashboardData, Category } from '../types';
+import { TradeRecord, DashboardData, Category, PeriodType } from '../types';
 
 const DEFAULT_SPREADSHEET_ID = import.meta.env.VITE_SPREADSHEET_ID || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vREMheZwXROY2GXp3LVG1ywfjXmf0NdK-TRJ5VcB_di-iNwvKP5WeLyubB9p34x8R6iXAIk5bIIzrPu/pubhtml';
 
@@ -26,7 +26,12 @@ const MOCK_DATA: TradeRecord[] = [
   { date: 'Mar-6', pair: 'NZDUSD', type: 'BUY', entry: '0.58706', net: 33 },
 ];
 
-export async function fetchSheetData(category: Category = 'FOREX', input = DEFAULT_SPREADSHEET_ID): Promise<DashboardData> {
+export async function fetchSheetData(
+  category: Category = 'FOREX',
+  input = DEFAULT_SPREADSHEET_ID,
+  period: PeriodType = '1W',
+  weeks?: number[]
+): Promise<DashboardData> {
   const currentId = import.meta.env.VITE_SPREADSHEET_ID || input;
   
   if (!currentId || currentId === 'PASTE_YOUR_ID_HERE') {
@@ -36,19 +41,37 @@ export async function fetchSheetData(category: Category = 'FOREX', input = DEFAU
       dateRange: 'Mar 02 - Mar 06',
       trustpilotRating: 4.5,
       isMock: true,
-      category
+      category,
+      period: '1W'
     };
   }
 
   try {
-    const response = await fetch(`/api/fetch-sheet?id=${encodeURIComponent(currentId)}&category=${category}`);
+    const params = new URLSearchParams();
+    params.set('id', currentId);
+    params.set('category', category);
+    params.set('period', period);
+    if (weeks && weeks.length > 0) {
+      params.set('weeks', weeks.join(','));
+    }
+
+    const response = await fetch(`/api/fetch-sheet?${params.toString()}`);
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       const detailedError = errData.error || 'Connection failed';
       throw new Error(`[SERVER ERROR]: ${detailedError}. Check "Published to web" settings.`);
     }
     
-    return await response.json();
+    const result = await response.json();
+    if (result && Array.isArray(result.trades)) {
+      const filteredTrades = result.trades.filter((t: any) => Math.abs(t.net) > 2);
+      result.trades = filteredTrades;
+      result.totalPips = filteredTrades.reduce((sum: number, t: any) => sum + t.net, 0);
+      if (filteredTrades.length > 0) {
+        result.dateRange = `${filteredTrades[0].date} - ${filteredTrades[filteredTrades.length - 1].date}`;
+      }
+    }
+    return result;
   } catch (err: any) {
     console.error('Fetch error:', err);
     throw err;

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Papa from 'papaparse';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Allow CORS
@@ -53,6 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const baseCsvUrl = url.split('?')[0].replace('/pubhtml', '/pub');
     const params = new URLSearchParams(url.split('?')[1] || '');
     params.set('output', 'csv');
+    params.set('single', 'true');
     const csvUrl = `${baseCsvUrl}?${params.toString()}`;
 
     console.log(`[FETCH] Trying CSV for ${category}: ${csvUrl}`);
@@ -61,31 +63,123 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (csvResp.ok) {
       const csvText = await csvResp.text();
       if (csvText.length > 100) {
-        const csvRows = csvText
-          .split(/\r?\n/)
-          .filter((r) => r.trim())
-          .map((r) => r.split(','));
-        const trades = csvRows
-          .map((row) => {
-            if (row.length < 5) return null;
-            const cols = row.map((c) => c.replace(/"/g, '').trim());
-            const [date, pair, type, entry, net] = cols;
-            const loss = cols.length >= 6 ? cols[5] : '';
+        const parsed = Papa.parse(csvText, { skipEmptyLines: true });
+        const rows = parsed.data as string[][];
 
-            let v = parseInt(net.replace(/[^0-9-]/g, ''), 10);
-            const lv = parseInt(loss.replace(/[^0-9-]/g, ''), 10);
-            if (isNaN(v) || v === 0) {
-              if (!isNaN(lv) && lv !== 0) v = -Math.abs(lv);
-              else return null;
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(15, rows.length); i++) {
+          const r = rows[i];
+          if (r.some((c) => typeof c === 'string' && c.trim().toLowerCase() === 'pair')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        if (headerRowIndex !== -1) {
+          const header = rows[headerRowIndex].map((h) => (h || '').trim().toLowerCase());
+          const dateCol = header.findIndex((h) => h === 'date');
+          const pairCol = header.findIndex((h) => h === 'pair');
+          const dirCol = header.findIndex((h) => h === 'dir' || h === 'direction');
+          const entryCol = header.findIndex((h) => h === 'entry');
+          const netCol = header.findIndex((h) => h.includes('net'));
+          const lossCol = header.findIndex((h) => h.includes('loss'));
+          const wkCol = header.findIndex((h) => h.includes('wk') || h.includes('week'));
+
+          const allTrades: any[] = [];
+          const weeksFound = new Set<number>();
+
+          for (let i = headerRowIndex + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 3) continue;
+
+            const rawDate = (row[dateCol] || '').trim();
+            let rawPair = (row[pairCol] || '').trim();
+            let rawDir = dirCol >= 0 ? (row[dirCol] || '').trim() : '';
+            const rawEntry = entryCol >= 0 ? (row[entryCol] || '').trim() : '';
+            const rawNet = netCol >= 0 ? (row[netCol] || '').trim() : '';
+            const rawLoss = lossCol >= 0 ? (row[lossCol] || '').trim() : '';
+            const rawWk = wkCol >= 0 ? (row[wkCol] || '').trim() : '';
+
+            if (!rawDate && !rawPair) continue;
+            if (rawDate.toUpperCase() === 'DATE' || rawPair.toUpperCase() === 'PAIR') continue;
+
+            let pair = rawPair;
+            let type = rawDir;
+            const dirMatch = pair.match(/\s+(BUY(?:\s+LIMIT|\s+STOP)?|SELL(?:\s+LIMIT|\s+STOP)?)/i);
+            if (dirMatch) {
+              if (!type) type = dirMatch[1].trim();
+              pair = pair.replace(dirMatch[0], '').trim();
             }
-            if (!date || !pair || date.toUpperCase() === 'DATE' || pair.toUpperCase() === 'PAIR')
-              return null;
-            return { date, pair, entry, net: v, type: type.toUpperCase() };
-          })
-          .filter(Boolean);
+            if (!type && rawDir) type = rawDir;
+            type = type.toUpperCase() || 'BUY';
 
-        if (trades.length > 0) {
-          return sendResult(res, trades as any[], category);
+            let net = 0;
+            const netVal = parseInt(rawNet.replace(/[^0-9-]/g, ''), 10);
+            const lossVal = parseInt(rawLoss.replace(/[^0-9-]/g, ''), 10);
+
+            if (!isNaN(netVal) && netVal !== 0) {
+              net = netVal;
+            } else if (!isNaN(lossVal) && lossVal !== 0) {
+              net = -Math.abs(lossVal);
+            } else {
+              continue;
+            }
+
+            // Rule: Do not count net 1 or 2 and do not show in table
+            if (Math.abs(net) <= 2) {
+              continue;
+            }
+
+            const wkNum = parseInt(rawWk, 10);
+            if (!isNaN(wkNum) && wkNum > 0) {
+              weeksFound.add(wkNum);
+            }
+
+            allTrades.push({
+              date: rawDate,
+              pair,
+              type,
+              entry: rawEntry,
+              net,
+              week: !isNaN(wkNum) ? wkNum : undefined,
+            });
+          }
+
+          if (allTrades.length > 0) {
+            const sortedWeeks = Array.from(weeksFound).sort((a, b) => a - b);
+            const latestWeek = sortedWeeks.length > 0 ? sortedWeeks[sortedWeeks.length - 1] : undefined;
+            
+            const reqWeeks = ((req.query.weeks as string) || (req.query.week as string) || '').trim();
+            const reqPeriod = (((req.query.period as string) || (reqWeeks ? 'CUSTOM' : '1W'))).toUpperCase();
+
+            let targetWeeks: number[] = [];
+            if (reqWeeks) {
+              targetWeeks = reqWeeks.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+            } else if (reqPeriod === '2W') {
+              targetWeeks = sortedWeeks.slice(-2);
+            } else if (reqPeriod === '3W') {
+              targetWeeks = sortedWeeks.slice(-3);
+            } else if (reqPeriod === '4W' || reqPeriod === '1M') {
+              targetWeeks = sortedWeeks.slice(-4);
+            } else if (reqPeriod === '2M') {
+              targetWeeks = sortedWeeks.slice(-8);
+            } else if (reqPeriod === '3M') {
+              targetWeeks = sortedWeeks.slice(-12);
+            } else {
+              targetWeeks = latestWeek ? [latestWeek] : [];
+            }
+
+            const targetWeeksSet = new Set(targetWeeks);
+            let periodTrades = targetWeeksSet.size > 0
+              ? allTrades.filter((t) => t.week && targetWeeksSet.has(t.week))
+              : allTrades.slice(-30);
+
+            if (periodTrades.length === 0) {
+              periodTrades = allTrades.slice(-30);
+            }
+
+            return sendResult(res, periodTrades, category, targetWeeks, sortedWeeks, reqPeriod);
+          }
         }
       }
     }
@@ -99,7 +193,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Sheet is Private. Set sharing to Public → Entire Document.');
     }
 
-    // Simple regex-based table extraction (no jsdom dependency needed on Vercel)
     const tableMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi);
     if (!tableMatch) throw new Error('Data table not found.');
 
@@ -120,6 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!date || !pair || date.toUpperCase() === 'DATE' || pair.toUpperCase() === 'PAIR')
           return null;
+        // Rule: Do not count net 1 or 2 and do not show in table
+        if (Math.abs(v) <= 2) return null;
         return { date, pair, entry, net: v, type: type.toUpperCase() };
       })
       .filter(Boolean);
@@ -132,25 +227,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-function sendResult(res: VercelResponse, trades: any[], category: string) {
-  trades.sort((a, b) => {
-    const p = (s: string) => {
-      const parts = s.replace(/,/g, '').split(/[-\s/]+/);
-      if (parts.length < 2) return 0;
-      const m: any = {
-        JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-        JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
-      };
-      const ms = parts[0].toUpperCase().substring(0, 3);
-      return (m[ms] || 0) * 100 + (parseInt(parts[1], 10) || 0);
-    };
-    return p(a.date) - p(b.date);
-  });
-  const total = trades.reduce((s, t) => s + t.net, 0);
+function sendResult(
+  res: VercelResponse,
+  trades: any[],
+  category: string,
+  selectedWeeks?: number[],
+  availableWeeks?: number[],
+  period?: string
+) {
+  const filteredTrades = trades.filter((t: any) => Math.abs(t.net) > 2);
+  const total = filteredTrades.reduce((s: number, t: any) => s + t.net, 0);
   return res.json({
-    trades,
+    trades: filteredTrades,
     totalPips: total,
-    dateRange: `${trades[0].date} - ${trades[trades.length - 1].date}`,
+    dateRange: filteredTrades.length > 0 ? `${filteredTrades[0].date} - ${filteredTrades[filteredTrades.length - 1].date}` : 'N/A',
     category,
+    period: period || '1W',
+    selectedWeeks: selectedWeeks || [],
+    availableWeeks: availableWeeks || [],
   });
 }
