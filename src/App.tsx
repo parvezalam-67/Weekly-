@@ -91,7 +91,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:gap-6 py-4 sm:py-8 px-2.5 sm:px-4 min-h-screen bg-[#020802] w-full max-w-full relative">
+    <div className="flex flex-col items-center gap-5 sm:gap-7 py-6 sm:py-10 px-4 sm:px-8 md:px-12 min-h-screen bg-[#020802] w-full max-w-full relative">
       {/* Category Tabs */}
       <nav className="flex w-full max-w-[360px] sm:max-w-none sm:w-auto justify-center gap-1.5 sm:gap-4 p-1 sm:p-1.5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-xl z-[70] ignore-export">
         {categories.map((cat) => (
@@ -156,7 +156,7 @@ export default function App() {
 
       {/* Mobile Trades List Mode (Touch-optimized detail view for phones) */}
       {mobileTab === 'list' && (
-        <div className="w-full max-w-[1000px] md:hidden ignore-export">
+        <div className="w-[92%] sm:w-full max-w-[1000px] md:hidden ignore-export my-2">
           <MobileTradeList
             trades={data?.trades || []}
             category={activeCategory}
@@ -166,11 +166,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 1:1 Aspect Ratio Canvas Container Wrapper (Responsive Scaler) */}
+      {/* 1:1 Aspect Ratio Canvas Container Wrapper (Responsive Scaler with breathing space) */}
       <div
         ref={containerRef}
         className={cn(
-          "relative w-full max-w-[1000px] mx-auto group touch-pan-y select-none",
+          "relative w-[92%] sm:w-full max-w-[1000px] mx-auto group touch-pan-y select-none my-2 sm:my-4",
           mobileTab === 'list' ? "hidden md:block" : "block"
         )}
         style={{ height: `${1000 * scale}px` }}
@@ -249,10 +249,10 @@ export default function App() {
                 />
               </div>
 
-              {/* Main Content Area */}
-              <div className="flex-1 flex flex-col p-3 lg:p-4 relative overflow-hidden">
+              {/* Main Content Area with generous breathing room */}
+              <div className="flex-1 flex flex-col p-5 lg:p-7 relative overflow-hidden">
                 {/* Main Feed Engine */}
-                <main className="flex-1 min-h-0 h-full relative mt-1">
+                <main className="flex-1 min-h-0 h-full relative">
                   {error ? (
                     <div className="h-full flex items-center justify-center p-10 bg-red-500/5 rounded-2xl border border-red-500/10 backdrop-blur-md">
                       <div className="text-center space-y-6">

@@ -62,13 +62,13 @@ export function TradeTable({ trades, category = 'FOREX' }: TradeTableProps) {
   const isScroll = totalTrades > 35;
 
   const dateColWidth = isSpacious ? 'w-[18%]' : isCompact ? 'w-[15%]' : 'w-[16%]';
-  const headerMb = isSpacious ? 'mb-2.5' : isCompact ? 'mb-1' : 'mb-1.5';
-  const containerGap = isSpacious ? 'gap-2.5' : isCompact ? 'gap-1' : 'gap-1.5';
+  const headerMb = isSpacious ? 'mb-3' : isCompact ? 'mb-1.5' : 'mb-2';
+  const containerGap = isSpacious ? 'gap-3' : isCompact ? 'gap-1.5' : 'gap-2';
 
   const rowPadding = isSpacious
     ? 'py-2.5 sm:py-3'
     : isCompact
-      ? 'py-0.5'
+      ? 'py-0.5 sm:py-1'
       : 'py-1 sm:py-1.5';
 
   const pairTextSize = isSpacious
