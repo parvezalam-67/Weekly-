@@ -1,8 +1,9 @@
 import { useState, useCallback, RefObject } from 'react';
+import { toPng, toJpeg } from 'html-to-image';
 
 /**
- * Super-stable download engine.
- * Specifically optimized to avoid CORS issues by using pure CSS backgrounds.
+ * Super-stable, high-performance download engine.
+ * Optimized for low latency on mobile and desktop devices.
  */
 export function useDownload(ref: RefObject<HTMLElement | null>) {
   const [isExporting, setIsExporting] = useState(false);
@@ -12,24 +13,16 @@ export function useDownload(ref: RefObject<HTMLElement | null>) {
     
     try {
       setIsExporting(true);
-      
-      // Dynamic import to keep main bundle light
-      const { toPng, toJpeg } = await import('html-to-image');
-
-      // Add a small buffer for the browser to stabilize
-      await new Promise(resolve => setTimeout(resolve, 50));
 
       const filter = (node: HTMLElement) => {
         return !node.classList?.contains?.('ignore-export');
       };
 
       const options = {
-        cacheBust: true,
+        cacheBust: false,
         pixelRatio: 2,
         width: 1000,
         height: 1000,
-        canvasWidth: 2000,
-        canvasHeight: 2000,
         backgroundColor: '#010101',
         filter,
         style: {

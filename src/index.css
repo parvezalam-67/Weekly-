@@ -7,8 +7,12 @@
 }
 
 @layer base {
-  body {
+  html, body {
     @apply bg-[#020802] text-white antialiased selection:bg-[#00FF00]/30;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
 }
 

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Loader2, RefreshCw, AlertCircle, Download, ExternalLink, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, Download, ExternalLink, ChevronRight, ChevronLeft, ArrowUp } from 'lucide-react';
 import { Sidebar } from './components/dashboard/Sidebar';
 import { TradeTable } from './components/dashboard/TradeTable';
 import { PipsOverview } from './components/dashboard/PipsOverview';
@@ -25,6 +25,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<Category>('FOREX');
   const [view, setView] = useState<'table' | 'overview'>('table');
   const [mobileTab, setMobileTab] = useState<'banner' | 'list'>('banner');
+  const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
 
   const {
     data,
@@ -38,6 +39,19 @@ export default function App() {
     toggleWeek
   } = useDashboard(activeCategory);
   const { download, isExporting } = useDownload(dashboardRef);
+
+  // Monitor scroll position to display Back to Top button on mobile
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 150);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Auto-scale 1000x1000 canvas to fit mobile viewports proportionally
   useEffect(() => {
@@ -71,13 +85,13 @@ export default function App() {
   const handleExport = async () => {
     if (mobileTab === 'list') {
       setMobileTab('banner');
-      await new Promise((res) => setTimeout(res, 120));
+      await new Promise((res) => setTimeout(res, 40));
     }
     download();
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:gap-6 py-4 sm:py-8 px-2.5 sm:px-4 min-h-screen bg-[#020802] overflow-x-hidden max-w-full">
+    <div className="flex flex-col items-center gap-4 sm:gap-6 py-4 sm:py-8 px-2.5 sm:px-4 min-h-screen bg-[#020802] w-full max-w-full relative">
       {/* Category Tabs */}
       <nav className="flex w-full max-w-[360px] sm:max-w-none sm:w-auto justify-center gap-1.5 sm:gap-4 p-1 sm:p-1.5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-xl z-[70] ignore-export">
         {categories.map((cat) => (
@@ -156,7 +170,7 @@ export default function App() {
       <div
         ref={containerRef}
         className={cn(
-          "relative w-full max-w-[1000px] mx-auto group",
+          "relative w-full max-w-[1000px] mx-auto group touch-pan-y select-none",
           mobileTab === 'list' ? "hidden md:block" : "block"
         )}
         style={{ height: `${1000 * scale}px` }}
@@ -322,6 +336,18 @@ export default function App() {
           </a>
         </div>
       </div>
+
+      {/* Floating Back to Top Button on mobile scroll */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-5 z-[80] flex items-center gap-1.5 px-3.5 py-2.5 bg-black/90 hover:bg-black text-[#00FF00] rounded-full border border-white/20 shadow-[0_4px_20px_rgba(0,255,0,0.25)] backdrop-blur-xl transition-all animate-in fade-in slide-in-from-bottom-3 duration-200 ignore-export"
+          title="Back to Top"
+        >
+          <ArrowUp className="w-4 h-4" />
+          <span className="text-[10px] font-black uppercase tracking-wider pr-0.5">Top</span>
+        </button>
+      )}
     </div>
   );
 }
